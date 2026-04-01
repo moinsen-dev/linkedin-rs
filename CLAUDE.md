@@ -22,8 +22,7 @@
 - Rate-limit API calls to avoid account restrictions
 
 ## Tool Usage
-- Use `nix-shell --run 'tool args'` for all tool invocations
-- Run `just e2e` before every commit (once Justfile exists)
+- Run `just e2e` before every commit
 - Run `just showcase` as regression gate (once CLI exists)
 
 ## LinkedIn-Specific Notes

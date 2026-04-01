@@ -1,5 +1,4 @@
 # LinkedIn Reversed — project recipes
-# All recipes run inside nix-shell via `nix-shell --run "just <recipe>"`
 
 MANIFEST := "linkedin/Cargo.toml"
 
@@ -25,6 +24,10 @@ fmt-check:
 
 # End-to-end gate: build, test, lint, format check
 e2e: build test lint fmt-check
+
+# Install the CLI to ~/.cargo/bin
+install:
+    cargo install --path linkedin/linkedin-cli
 
 # Run the CLI with arguments
 run *ARGS:

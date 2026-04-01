@@ -39,12 +39,11 @@ All list commands support `--count`, `--start` (or `--before` for cursor paginat
 
 ### Prerequisites
 
-This project uses Nix for reproducible builds. All dependencies (Rust toolchain, Android tools, analysis tools) are declared in `shell.nix`.
+- **Rust** (stable) — install via [rustup](https://rustup.rs/)
+- **just** — task runner (`cargo install just` or via your package manager)
+- On macOS: Xcode Command Line Tools (`xcode-select --install`)
 
 ```bash
-# Enter the development shell
-nix-shell
-
 # Build the workspace
 just build
 
@@ -250,6 +249,5 @@ linkedin/
   linkedin-cli/     Rust binary crate (clap CLI)
 re/                 Reverse engineering documentation
 secrets/            Tokens, captured responses, PII (gitignored)
-shell.nix           Nix development environment
 Justfile            Build recipes
 ```
