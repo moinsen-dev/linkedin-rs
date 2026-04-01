@@ -90,6 +90,8 @@ linkedin-cli feed list --count 50 --json
 
 Parse the JSON output. For each element in the `elements` array:
 
+**Skip sponsored posts:** If `element.isSponsored` is `true`, skip entirely. Sponsored posts have a different structure and are ads, not organic content.
+
 **URN extraction (CRITICAL):**
 LinkedIn feed items wrap the UpdateV2 payload inside:
 ```
