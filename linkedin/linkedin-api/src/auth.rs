@@ -35,15 +35,29 @@ pub struct Session {
 
     /// Timestamp when this session was created/saved.
     pub created_at: DateTime<Utc>,
+
+    /// Persistent device identifier (UUID v4).
+    ///
+    /// Used as both the `X-UDID` header and the `deviceId` in `X-LI-Track`.
+    /// The real LinkedIn app persists this across restarts. Generating a new
+    /// one per CLI invocation causes LinkedIn to flag the session as suspicious
+    /// and reject write operations (reactions, comments).
+    ///
+    /// Optional for backwards compatibility with session files created before
+    /// this field was added. When absent, `LinkedInClient::with_session()`
+    /// generates a fresh UUID (legacy behavior).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
 }
 
 impl Session {
-    /// Create a new session with the given li_at cookie and a fresh JSESSIONID.
-    pub fn new(li_at: String, jsessionid: String) -> Self {
+    /// Create a new session with the given li_at cookie, JSESSIONID, and device ID.
+    pub fn new(li_at: String, jsessionid: String, device_id: String) -> Self {
         Self {
             li_at,
             jsessionid,
             created_at: Utc::now(),
+            device_id: Some(device_id),
         }
     }
 
@@ -134,6 +148,7 @@ mod tests {
         let session = Session::new(
             "AQEDATest123".to_string(),
             "ajax:0000000000000000042".to_string(),
+            "test-device-id-1234".to_string(),
         );
         session.save(&path).expect("save must succeed");
 
@@ -141,6 +156,7 @@ mod tests {
         assert_eq!(loaded.li_at, session.li_at);
         assert_eq!(loaded.jsessionid, session.jsessionid);
         assert_eq!(loaded.created_at, session.created_at);
+        assert_eq!(loaded.device_id, session.device_id);
 
         // Verify file permissions on Unix.
         #[cfg(unix)]
@@ -163,13 +179,22 @@ mod tests {
         let valid = Session::new(
             "AQEDATest123".to_string(),
             "ajax:0000000000000000042".to_string(),
+            "device-1".to_string(),
         );
         assert!(valid.is_valid());
 
-        let empty = Session::new(String::new(), "ajax:0000000000000000042".to_string());
+        let empty = Session::new(
+            String::new(),
+            "ajax:0000000000000000042".to_string(),
+            "device-2".to_string(),
+        );
         assert!(!empty.is_valid());
 
-        let whitespace = Session::new("   ".to_string(), "ajax:0000000000000000042".to_string());
+        let whitespace = Session::new(
+            "   ".to_string(),
+            "ajax:0000000000000000042".to_string(),
+            "device-3".to_string(),
+        );
         assert!(!whitespace.is_valid());
     }
 

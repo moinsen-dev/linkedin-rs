@@ -570,11 +570,12 @@ async fn cmd_auth_login(li_at_flag: Option<String>) -> Result<(), String> {
         return Err("li_at cookie value must not be empty".to_string());
     }
 
-    // Generate a fresh JSESSIONID for this session.
+    // Generate a fresh JSESSIONID and device ID for this session.
     let client = LinkedInClient::new().map_err(|e| format!("failed to create client: {e}"))?;
     let jsessionid = client.jsessionid().to_string();
+    let device_id = client.device_id().to_string();
 
-    let session = Session::new(li_at, jsessionid);
+    let session = Session::new(li_at, jsessionid, device_id);
     let path = Session::default_path().map_err(|e| format!("{e}"))?;
     session.save(&path).map_err(|e| format!("{e}"))?;
 

@@ -102,10 +102,14 @@ impl LinkedInClient {
     /// Create a client from a persisted [`Session`].
     ///
     /// Uses the session's JSESSIONID and injects the `li_at` cookie into the
-    /// cookie jar on the `.linkedin.com` domain. A new device ID is generated
-    /// (the session doesn't persist device identity -- that's a separate concern).
+    /// cookie jar on the `.linkedin.com` domain. The device ID is restored
+    /// from the session if available, otherwise a new one is generated
+    /// (legacy sessions created before device_id persistence).
     pub fn with_session(session: &Session) -> Result<Self, Error> {
-        let device_id = uuid::Uuid::new_v4().to_string();
+        let device_id = session
+            .device_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         Self::build(&device_id, &session.jsessionid, Some(&session.li_at))
     }
 
@@ -1490,23 +1494,51 @@ fn unwrap_graphql(raw: &Value, data_key: &str) -> Result<Value, Error> {
         })
 }
 
-/// Check a GraphQL JSON response for a top-level `errors` array and return
-/// an error if any are present. GraphQL can return HTTP 200 with logical
-/// errors in the response body.
+/// Check a GraphQL JSON response for errors and return an error if any are
+/// present. GraphQL can return HTTP 200 with logical errors in the body.
+///
+/// LinkedIn GraphQL mutations return errors in two possible locations:
+/// - Top-level: `{ "errors": [...] }` (standard GraphQL)
+/// - Nested: `{ "value": { "errors": [...] } }` (LinkedIn mutation responses)
+///
+/// Both are checked.
 fn check_graphql_errors(json: &Value) -> Result<(), Error> {
+    // Check top-level errors (standard GraphQL).
     if let Some(errors) = json.get("errors").and_then(|e| e.as_array()) {
         if !errors.is_empty() {
-            let messages: Vec<&str> = errors
-                .iter()
-                .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
-                .collect();
-            return Err(Error::Api {
-                status: 200,
-                body: format!("GraphQL errors: {}", messages.join("; ")),
-            });
+            return Err(graphql_error_from_array(errors));
+        }
+    }
+    // Check nested errors in LinkedIn mutation responses (value.errors).
+    if let Some(errors) = json
+        .get("value")
+        .and_then(|v| v.get("errors"))
+        .and_then(|e| e.as_array())
+    {
+        if !errors.is_empty() {
+            return Err(graphql_error_from_array(errors));
         }
     }
     Ok(())
+}
+
+/// Extract error messages from a GraphQL errors array and build an [`Error::Api`].
+fn graphql_error_from_array(errors: &[Value]) -> Error {
+    let messages: Vec<&str> = errors
+        .iter()
+        .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
+        .collect();
+    // Try to extract the HTTP-like status from the first error's extensions.
+    let status = errors
+        .first()
+        .and_then(|e| e.get("extensions"))
+        .and_then(|ext| ext.get("status"))
+        .and_then(|s| s.as_u64())
+        .unwrap_or(200) as u16;
+    Error::Api {
+        status,
+        body: format!("GraphQL errors: {}", messages.join("; ")),
+    }
 }
 
 /// Build a GraphQL query parameter string for the Voyager GraphQL endpoint.
