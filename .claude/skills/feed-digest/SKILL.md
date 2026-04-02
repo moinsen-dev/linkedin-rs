@@ -10,7 +10,8 @@ Collect unique LinkedIn feed posts over 24 hours and generate an AI-powered dail
 
 ## Commands
 
-- `/feed-digest start` — Start a new 24h collection cycle (sets up cron)
+- `/feed-digest start` — Start a new 24h collection cycle
+- `/feed-digest collect` — Run a single collect pass (fetch + deduplicate). Use with `/loop 30m /feed-digest collect` for automated polling.
 - `/feed-digest stop` — Stop collection and generate summary immediately
 - `/feed-digest status` — Show current cycle info (posts collected, time remaining)
 
@@ -42,20 +43,13 @@ When the user runs `/feed-digest start`:
 
 3. Run the first collect pass (see Collect section below).
 
-4. Set up cron to run collect every 30 minutes. Use the `/schedule` skill to create a trigger:
-
-   Schedule a remote trigger with cron `"*/30 * * * *"` and prompt:
+4. Report to user:
 
    ```
-   Run /feed-digest collect
-   ```
-
-5. Report to user:
-
-   ```
-   Feed-Digest gestartet. Sammle alle 30 Min neue Posts.
-   Erster Durchlauf: N neue Posts gefunden.
-   Zusammenfassung wird in ~24h automatisch generiert.
+   Feed-Digest gestartet. Erster Durchlauf: N neue Posts gefunden.
+   
+   Automatisches Sammeln: /loop 30m /feed-digest collect
+   Oder manuell: /feed-digest collect
    ```
 
 ## Collect Command (cron-triggered)
@@ -207,11 +201,7 @@ rm secrets/feed-collector/started_at.txt
 
 Do NOT delete the digest file — it persists.
 
-### Step 6: Cancel the cron trigger
-
-Remove the scheduled trigger that was set up during start.
-
-### Step 7: Report to user
+### Step 6: Report to user
 
 ```
 Feed-Digest abgeschlossen!
