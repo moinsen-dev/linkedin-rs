@@ -40,34 +40,56 @@ The feed contains two types of posts:
 
 You can detect mediated posts by the presence of a `header` block in the feed item (showing who liked/reposted/commented).
 
-**Language filter (MANDATORY):**
+**Filter 1 — Language (MANDATORY, applied first):**
 
-- **ONLY engage with German-language posts.** This is the primary filter.
+- **ONLY engage with German-language posts.**
 - Posts written in English or any other non-German language are SKIPPED, regardless of topic relevance.
 - Mixed-language posts (e.g., German text with English technical terms) count as German.
 - Posts from German-speaking authors that are written entirely in English are still SKIPPED.
 
-**Include posts about:**
+**Filter 2 — Builder filter (MANDATORY, applied second):**
 
+The core question for every post: **"Hat diese Person etwas gebaut, geloest, oder dabei geholfen?"**
+
+A post PASSES the builder filter if the author:
+- **Built something**: shipped a feature, product, tool, library, side project, prototype, or open-source contribution
+- **Solved a concrete problem**: debugged an issue, found a workaround, fixed a production incident, optimized performance
+- **Shared hands-on experience**: lessons from actual implementation work, architecture decisions they made, migration stories they lived through
+- **Asked a genuine technical question**: stuck on a real problem they're working on, seeking specific advice (not rhetorical engagement bait)
+
+A post FAILS the builder filter if:
+- The author **commentates without building** — opinions about industry trends, hot takes on other companies' decisions, "AI will change everything" style posts
+- The author **curates or summarizes** — "5 tools every developer needs", listicles, link roundups without own experience
+- The author **teaches from authority, not experience** — generic advice posts ("Here's how to be a better developer") without referencing their own recent work
+- The post is **meta-LinkedIn content** — posts about posting, engagement strategy, personal branding, "what I learned from going viral"
+- The author's **profile signals influencer over builder** — titles like "LinkedIn Top Voice", "Content Creator", "Thought Leader", "Keynote Speaker" without a clear technical role. Check the author description field for these signals.
+
+**Borderline cases:** If the post mixes opinion with genuine build experience (e.g., a hot take backed by "we hit this exact problem last month when..."), it PASSES. The bar is: does the post contain evidence that the author actually does the work?
+
+**Filter 3 — Topic relevance (applied after builder filter passes):**
+
+Include posts about:
 - Software engineering, AI/ML, DevOps, open source, Rust, Flutter, cloud, infrastructure
-- Entrepreneurship, strategy, product management, team leadership, startups
-- Original takes, genuine questions, interesting technical challenges
+- Entrepreneurship with substance (building a company, shipping product, hiring decisions with context)
+- Concrete technical challenges, architecture decisions, debugging stories
 
-**Skip posts that are:**
+**Skip posts that are (in addition to builder filter failures):**
 
-- Written in English or any non-German language (see language filter above)
-- Pure self-promotion without substance
-- Motivational quotes or engagement bait ("Agree?", "Like if you...")
-- Recruiting spam or job ads
+- Written in English or any non-German language (see Filter 1)
 - Already liked by the user (`liked: true`)
+- Sponsored posts
 - Reshares without own commentary
+- Recruiting spam or job ads
+- Motivational quotes or engagement bait ("Agree?", "Like if you...")
 - Generic corporate announcements
+- News articles or press releases without personal experience added
 
 **Prefer posts with:**
 
 - Low engagement (commenting early increases visibility)
-- Original or controversial theses
-- Genuine questions from the author
+- Specific technical details (code snippets, architecture diagrams, error messages, metrics)
+- First-person experience ("Wir haben...", "Ich hab letzte Woche...", "Nach 3 Monaten mit X...")
+- Genuine questions from someone stuck on a real problem
 
 ### Step 4: Create Engagement Plan
 
@@ -76,14 +98,15 @@ Present a table with ALL proposed actions at once:
 ```
 ## Engagement Plan (X von Y Posts relevant)
 
-| # | Autor | Post (Preview) | Aktion | Kommentar |
-|---|-------|----------------|--------|-----------|
-| 1 | Jane Smith | "Wir haben unser Monitoring..." | LIKE + Kommentar | "Spannend, welches Tool nutzt ihr dafuer?" |
-| 2 | Max M. | "Rust im Embedded-Bereich..." | LIKE | - |
-| 3 | Sarah K. | "After 3 months of..." | LIKE + Kommentar | "Nice, congrats! How did the onboarding go?" |
+| # | Autor | Was gebaut/geloest? | Post (Preview) | Aktion | Kommentar |
+|---|-------|---------------------|----------------|--------|-----------|
+| 1 | Jane S. | Monitoring-Stack migriert | "Wir haben unser Monitoring..." | LIKE + Kommentar | "Spannend, welches Tool nutzt ihr dafuer?" |
+| 2 | Max M. | Rust auf Embedded deployed | "Rust im Embedded-Bereich..." | LIKE | - |
 
-Skipped: N Posts (Xx self-promo, Xx already liked, Xx not relevant)
+Skipped: N Posts (Xx influencer/opinion-only, Xx English, Xx already liked, Xx sponsored, Xx not relevant)
 ```
+
+The "Was gebaut/geloest?" column is mandatory. If you cannot fill it with a concrete builder action, the post does not pass Filter 2.
 
 Then ask: **"Soll ich den Plan so ausfuehren? Du kannst einzelne Zeilen aendern oder streichen."**
 
