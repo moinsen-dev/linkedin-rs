@@ -18,6 +18,7 @@ use tokio::sync::OnceCell;
 
 use crate::auth::Session;
 use crate::error::Error;
+use crate::graphql_ids;
 
 /// Base URL for all LinkedIn API requests. There is no separate API subdomain;
 /// all API calls go to `www.linkedin.com` with path-based routing.
@@ -439,7 +440,7 @@ impl LinkedInClient {
         let variables = format!("(memberIdentity:{})", restli_id);
         let params = graphql_params(
             &variables,
-            "voyagerIdentityDashProfiles.5f50f83f76a1e270603613bdd0fb0252",
+            graphql_ids::PROFILE_BY_MEMBER_IDENTITY,
             "ProfilesByMemberIdentity",
         );
         let raw = self.graphql_get(&params).await?;
@@ -484,7 +485,7 @@ impl LinkedInClient {
         let variables = format!("(vanityName:{})", restli_id);
         let params = graphql_params(
             &variables,
-            "voyagerIdentityDashProfiles.a3de77c32c473719f1c58fae6bff43a5",
+            graphql_ids::PROFILE_VISIT,
             "ProfilesByMemberIdentity",
         );
         let raw = self.graphql_get(&params).await?;
@@ -618,7 +619,7 @@ impl LinkedInClient {
         };
         let params = graphql_params(
             &vars,
-            "voyagerMessagingDashMessengerConversations.7dc50d3efc3953190125aca9c05f0af6",
+            graphql_ids::CONVERSATIONS_BY_CATEGORY,
             "MessengerConversationsByCategory",
         );
         let raw = self.graphql_get(&params).await?;
@@ -691,7 +692,7 @@ impl LinkedInClient {
 
         let params = graphql_params(
             &variables,
-            "voyagerSearchDashClusters.fae19421cdd51a7cd735e0b7d7b32e0f",
+            graphql_ids::SEARCH_CLUSTERS,
             "SearchClusterCollection",
         );
         let raw = self.graphql_get(&params).await?;
@@ -734,7 +735,7 @@ impl LinkedInClient {
 
         let params = graphql_params(
             &variables,
-            "voyagerJobsDashJobCards.4ef915ad5827cd8ea1351ad72f8e4268",
+            graphql_ids::JOB_CARDS_BY_SEARCH,
             "JobCardsByJobSearch",
         );
         let raw = self.graphql_get(&params).await?;
@@ -772,7 +773,7 @@ impl LinkedInClient {
         let variables = format!("(start:{},count:{})", start, count);
         let params = graphql_params(
             &variables,
-            "voyagerIdentityDashNotificationCards.1a1ca07d1f7a6e1033fd88d5fd2da611",
+            graphql_ids::NOTIFICATION_CARDS,
             "NotificationsCardsByFilterVanityName",
         );
         let raw = self.graphql_get(&params).await?;
@@ -995,7 +996,7 @@ impl LinkedInClient {
 
         self.graphql_post(
             &variables,
-            "voyagerSocialDashReactions.fd68eadaf15da416b0d839e21399b763",
+            graphql_ids::REACTION_CREATE,
             "CreateSocialDashReactions",
         )
         .await
@@ -1037,7 +1038,7 @@ impl LinkedInClient {
 
         self.graphql_post(
             &variables,
-            "voyagerSocialDashReactions.315cef4773de8e3a0ddad7655cc1685f",
+            graphql_ids::REACTION_DELETE,
             "DoDeleteReactionSocialDashReactions",
         )
         .await
@@ -1102,7 +1103,7 @@ impl LinkedInClient {
 
         self.graphql_post(
             &variables,
-            "voyagerSocialDashNormComments.cd3d2a3fd6c9b2881c7cac32847ec05e",
+            graphql_ids::COMMENT_CREATE,
             "CreateSocialDashNormComments",
         )
         .await
@@ -1187,7 +1188,7 @@ impl LinkedInClient {
                     }
                 }
             },
-            "queryId": "voyagerContentcreationDashShares.279996efa5064c01775d5aff003d9377",
+            "queryId": graphql_ids::SHARE_CREATE,
             "includeWebMetadata": true
         });
 
@@ -1196,8 +1197,10 @@ impl LinkedInClient {
         // as the server uses both. The `x-li-graphql-pegasus-client` header
         // is required for all GraphQL requests.
         let url = format!(
-            "{}{}graphql?action=execute&queryId=voyagerContentcreationDashShares.279996efa5064c01775d5aff003d9377",
-            BASE_URL, API_PREFIX
+            "{}{}graphql?action=execute&queryId={}",
+            BASE_URL,
+            API_PREFIX,
+            graphql_ids::SHARE_CREATE
         );
         let resp = self
             .http
@@ -1260,7 +1263,7 @@ impl LinkedInClient {
         };
         let params = graphql_params(
             &variables,
-            "voyagerMessagingDashMessengerMessages.7cde5843a127bbecc3de900d3894a74a",
+            graphql_ids::MESSAGES_BY_CONVERSATION,
             "MessengerMessagesByConversation",
         );
         let raw = self.graphql_get(&params).await?;
@@ -1383,7 +1386,7 @@ impl LinkedInClient {
         let variables = format!("(start:{},count:{},includeInsights:true)", start, count);
         let params = graphql_params(
             &variables,
-            "voyagerRelationshipsDashInvitationViews.48949225027e0a85d063176777f08e7f",
+            graphql_ids::INVITATION_VIEWS,
             "ReceivedInvitationViews",
         );
         let raw = self.graphql_get(&params).await?;

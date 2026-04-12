@@ -14,4 +14,5 @@
 pub mod auth;
 pub mod client;
 pub mod error;
+pub mod graphql_ids;
 pub mod models;
