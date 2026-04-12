@@ -28,11 +28,57 @@ const BASE_URL: &str = "https://www.linkedin.com";
 /// The China variant uses `/zephyr/api/` but we target production.
 const API_PREFIX: &str = "/voyager/api/";
 
-/// LinkedIn app version to impersonate. Should match a recent Play Store release.
-const CLIENT_VERSION: &str = "4.2.1058";
+/// Device profile describing the Android device to impersonate.
+///
+/// LinkedIn uses `X-LI-Track` header telemetry to detect automated access.
+/// Keeping these values up to date with a real device reduces detection risk.
+///
+/// # Updating after a new LinkedIn APK release
+///
+/// 1. Obtain the new APK via `apkeep`.
+/// 2. Decompile with `jadx`.
+/// 3. Search for `clientVersion` in `BuildConfig` or `XLiTrackHeader.java`.
+/// 4. Update `client_version` and `client_minor_version`.
+/// 5. Optionally update `model`, `os_version`, etc. to match a current device.
+#[derive(Debug, Clone)]
+pub struct DeviceProfile {
+    /// LinkedIn app version string (e.g. `"4.2.1058"`).
+    pub client_version: String,
+    /// Numeric build code corresponding to `client_version` (e.g. `562100`).
+    pub client_minor_version: i64,
+    /// Android OS version number as a string (e.g. `"34"` for Android 14).
+    pub os_version: String,
+    /// Device model string (e.g. `"Google_Pixel 8"`).
+    pub model: String,
+    /// Mobile carrier name (e.g. `"T-Mobile"`).
+    pub carrier: String,
+    /// Display density scale factor.
+    pub display_density: f64,
+    /// Display width in pixels.
+    pub display_width: u32,
+    /// Display height in pixels.
+    pub display_height: u32,
+    /// Android DPI bucket (e.g. `"xxhdpi"`).
+    pub dpi: String,
+}
 
-/// Numeric build/version code corresponding to CLIENT_VERSION.
-const CLIENT_MINOR_VERSION: i64 = 562100;
+impl Default for DeviceProfile {
+    /// Returns a Google Pixel 8 on Android 14 profile matching the APK version
+    /// used for reverse engineering (international variant 4.1.1183).
+    fn default() -> Self {
+        Self {
+            client_version: "4.2.1058".to_string(),
+            client_minor_version: 562100,
+            os_version: "34".to_string(),
+            model: "Google_Pixel 8".to_string(),
+            carrier: "T-Mobile".to_string(),
+            display_density: 2.625,
+            display_width: 1080,
+            display_height: 2400,
+            dpi: "xxhdpi".to_string(),
+        }
+    }
+}
 
 /// HTTP client configured to impersonate the LinkedIn Android app.
 ///
@@ -70,6 +116,9 @@ pub struct LinkedInClient {
     /// `XLiTrackHeader.initJson()`.
     x_li_track: String,
 
+    /// Device profile used for fingerprinting headers.
+    device_profile: DeviceProfile,
+
     /// Cached `fsd_profile` URN for the authenticated user, lazily fetched
     /// from the `/me` endpoint on first use. Avoids redundant `/me` calls
     /// when multiple messaging methods need the user's profile URN.
@@ -89,7 +138,17 @@ impl LinkedInClient {
     pub fn new() -> Result<Self, Error> {
         let device_id = uuid::Uuid::new_v4().to_string();
         let jsessionid = generate_jsessionid();
-        Self::build(&device_id, &jsessionid, None)
+        Self::build(&device_id, &jsessionid, None, DeviceProfile::default())
+    }
+
+    /// Create a client with a custom device profile.
+    ///
+    /// Use this when you want to impersonate a different device or LinkedIn
+    /// app version than the default Google Pixel 8 profile.
+    pub fn with_device_profile(profile: DeviceProfile) -> Result<Self, Error> {
+        let device_id = uuid::Uuid::new_v4().to_string();
+        let jsessionid = generate_jsessionid();
+        Self::build(&device_id, &jsessionid, None, profile)
     }
 
     /// Create a client with a specific device ID and JSESSIONID (for testing or persistence).
@@ -97,7 +156,7 @@ impl LinkedInClient {
     /// Use this when you want to restore a previous session's device identity
     /// rather than generating a new one.
     pub fn with_identity(device_id: String, jsessionid: String) -> Result<Self, Error> {
-        Self::build(&device_id, &jsessionid, None)
+        Self::build(&device_id, &jsessionid, None, DeviceProfile::default())
     }
 
     /// Create a client from a persisted [`Session`].
@@ -111,7 +170,12 @@ impl LinkedInClient {
             .device_id
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-        Self::build(&device_id, &session.jsessionid, Some(&session.li_at))
+        Self::build(
+            &device_id,
+            &session.jsessionid,
+            Some(&session.li_at),
+            DeviceProfile::default(),
+        )
     }
 
     /// Create a client using full browser cookies (from a cookies JSON file).
@@ -128,7 +192,7 @@ impl LinkedInClient {
             .unwrap_or_else(generate_jsessionid);
 
         let li_at = cookies.get("li_at").map(|s| s.as_str());
-        let client = Self::build(&device_id, &jsessionid, li_at)?;
+        let client = Self::build(&device_id, &jsessionid, li_at, DeviceProfile::default())?;
 
         // Inject all remaining cookies into the jar.
         let base_url: url::Url = BASE_URL.parse().unwrap();
@@ -156,8 +220,13 @@ impl LinkedInClient {
     /// Builds the reqwest client with cookie jar, default headers matching
     /// the LinkedIn Android app, and seeds the JSESSIONID cookie (plus
     /// optionally the `li_at` session cookie).
-    fn build(device_id: &str, jsessionid: &str, li_at: Option<&str>) -> Result<Self, Error> {
-        let x_li_track = build_x_li_track(device_id);
+    fn build(
+        device_id: &str,
+        jsessionid: &str,
+        li_at: Option<&str>,
+        device_profile: DeviceProfile,
+    ) -> Result<Self, Error> {
+        let x_li_track = build_x_li_track(device_id, &device_profile);
 
         // Build default headers applied to every request.
         let mut default_headers = HeaderMap::new();
@@ -225,6 +294,7 @@ impl LinkedInClient {
             jsessionid: jsessionid.to_string(),
             device_id: device_id.to_string(),
             x_li_track,
+            device_profile,
             profile_urn: OnceCell::new(),
         })
     }
@@ -566,6 +636,11 @@ impl LinkedInClient {
     /// Returns the base URL (`https://www.linkedin.com`).
     pub fn base_url(&self) -> &str {
         BASE_URL
+    }
+
+    /// Returns the device profile used for fingerprinting headers.
+    pub fn device_profile(&self) -> &DeviceProfile {
+        &self.device_profile
     }
 
     /// Fetch the user's messaging conversations.
@@ -1637,8 +1712,8 @@ fn generate_jsessionid() -> String {
 /// simplified auth-library variant. The auth-library variant is used only during
 /// login/registration (see `re/device_fingerprinting.md` section 1.5).
 ///
-/// Uses realistic static values for a Google Pixel 8 on Android 14.
-fn build_x_li_track(device_id: &str) -> String {
+/// Uses the provided [`DeviceProfile`] for device-specific values.
+fn build_x_li_track(device_id: &str, profile: &DeviceProfile) -> String {
     // Compute timezone offset from UTC in hours.
     let tz_offset_hours: f64 = {
         let now = chrono::Local::now();
@@ -1653,15 +1728,15 @@ fn build_x_li_track(device_id: &str) -> String {
 
     let track = serde_json::json!({
         "osName": "Android OS",
-        "osVersion": "34",
-        "clientVersion": CLIENT_VERSION,
-        "clientMinorVersion": CLIENT_MINOR_VERSION,
-        "carrier": "T-Mobile",
-        "model": "Google_Pixel 8",
-        "displayDensity": 2.625,
-        "displayWidth": 1080,
-        "displayHeight": 2400,
-        "dpi": "xxhdpi",
+        "osVersion": profile.os_version,
+        "clientVersion": profile.client_version,
+        "clientMinorVersion": profile.client_minor_version,
+        "carrier": profile.carrier,
+        "model": profile.model,
+        "displayDensity": profile.display_density,
+        "displayWidth": profile.display_width,
+        "displayHeight": profile.display_height,
+        "dpi": profile.dpi,
         "deviceType": "android",
         "appId": "com.linkedin.android",
         "deviceId": device_id,
@@ -1671,7 +1746,7 @@ fn build_x_li_track(device_id: &str) -> String {
         "advertiserId": "00000000-0000-0000-0000-000000000000",
         "isAdTrackingLimited": true,
         "mpName": "voyager-android",
-        "mpVersion": CLIENT_VERSION,
+        "mpVersion": profile.client_version,
     });
 
     track.to_string()
@@ -1737,24 +1812,25 @@ mod tests {
     #[test]
     fn x_li_track_has_required_fields() {
         let device_id = "test-uuid-1234";
-        let track_json = build_x_li_track(device_id);
+        let profile = DeviceProfile::default();
+        let track_json = build_x_li_track(device_id, &profile);
         let track: Value = serde_json::from_str(&track_json).expect("must be valid JSON");
 
         assert_eq!(track["osName"], "Android OS");
-        assert_eq!(track["osVersion"], "34");
-        assert_eq!(track["clientVersion"], CLIENT_VERSION);
-        assert_eq!(track["clientMinorVersion"], CLIENT_MINOR_VERSION);
-        assert_eq!(track["model"], "Google_Pixel 8");
+        assert_eq!(track["osVersion"], profile.os_version);
+        assert_eq!(track["clientVersion"], profile.client_version);
+        assert_eq!(track["clientMinorVersion"], profile.client_minor_version);
+        assert_eq!(track["model"], profile.model);
         assert_eq!(track["deviceType"], "android");
         assert_eq!(track["appId"], "com.linkedin.android");
         assert_eq!(track["deviceId"], device_id);
-        assert_eq!(track["dpi"], "xxhdpi");
-        assert_eq!(track["displayWidth"], 1080);
-        assert_eq!(track["displayHeight"], 2400);
+        assert_eq!(track["dpi"], profile.dpi);
+        assert_eq!(track["displayWidth"], profile.display_width);
+        assert_eq!(track["displayHeight"], profile.display_height);
         assert_eq!(track["storeId"], "com.linkedin.android");
         assert_eq!(track["isAdTrackingLimited"], true);
         assert_eq!(track["mpName"], "voyager-android");
-        assert_eq!(track["mpVersion"], CLIENT_VERSION);
+        assert_eq!(track["mpVersion"], profile.client_version);
 
         // timezoneOffset and timezone must be present
         assert!(
@@ -1768,9 +1844,36 @@ mod tests {
     fn x_li_track_device_id_matches_udid() {
         // The RE docs require X-UDID == X-LI-Track.deviceId
         let device_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-        let track_json = build_x_li_track(device_id);
+        let profile = DeviceProfile::default();
+        let track_json = build_x_li_track(device_id, &profile);
         let track: Value = serde_json::from_str(&track_json).unwrap();
         assert_eq!(track["deviceId"], device_id);
+    }
+
+    #[test]
+    fn x_li_track_custom_profile() {
+        let device_id = "custom-device";
+        let profile = DeviceProfile {
+            client_version: "5.0.100".to_string(),
+            client_minor_version: 700000,
+            os_version: "35".to_string(),
+            model: "Samsung_Galaxy S25".to_string(),
+            carrier: "Vodafone".to_string(),
+            display_density: 3.0,
+            display_width: 1440,
+            display_height: 3120,
+            dpi: "xxxhdpi".to_string(),
+        };
+        let track_json = build_x_li_track(device_id, &profile);
+        let track: Value = serde_json::from_str(&track_json).unwrap();
+        assert_eq!(track["clientVersion"], "5.0.100");
+        assert_eq!(track["clientMinorVersion"], 700000);
+        assert_eq!(track["osVersion"], "35");
+        assert_eq!(track["model"], "Samsung_Galaxy S25");
+        assert_eq!(track["carrier"], "Vodafone");
+        assert_eq!(track["displayWidth"], 1440);
+        assert_eq!(track["displayHeight"], 3120);
+        assert_eq!(track["dpi"], "xxxhdpi");
     }
 
     #[test]
