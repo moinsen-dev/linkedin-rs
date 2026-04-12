@@ -239,7 +239,7 @@ Lightweight profile used everywhere as an embedded reference.
 |-------|------|----------|----------|-------|
 | entityUrn | Urn | `entityUrn` | **yes** | e.g. `urn:li:fs_miniProfile:ACoAABxxxxxx` |
 | firstName | String | `firstName` | **yes** | |
-| publicIdentifier | String | `publicIdentifier` | **yes** | URL slug (e.g., `john-doe-123`) |
+| publicIdentifier | String | `publicIdentifier` | **yes** | URL slug (e.g., `example-user-000000000`) |
 | trackingId | String | `trackingId` | no | Base64 tracking token |
 | objectUrn | Urn | `objectUrn` | no | e.g. `urn:li:member:123456` |
 | lastName | String | `lastName` | no | |

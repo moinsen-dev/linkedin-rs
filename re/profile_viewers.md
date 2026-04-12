@@ -64,11 +64,11 @@ The response uses deeply nested Rest.li union encoding. The top-level shape:
       "com.linkedin.voyager.identity.me.FullProfileViewer": {
         "profile": {
           "miniProfile": {
-            "firstName": "Jane",
-            "lastName": "Doe",
+            "firstName": "Example",
+            "lastName": "User",
             "occupation": "Software Engineer at Example Corp",
             "entityUrn": "urn:li:fs_miniProfile:ACoAABxxxxxxxxx",
-            "publicIdentifier": "jane-doe-123"
+            "publicIdentifier": "example-user-000000000"
           }
         }
       }
